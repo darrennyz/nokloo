@@ -3,6 +3,13 @@ import { redirect } from 'next/navigation'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
 import type { ApiKey } from '@/types'
 
+function getAppUrl(): string {
+  // In production (Vercel), VERCEL_URL is set automatically
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
+}
+
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -14,5 +21,11 @@ export default async function SettingsPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  return <ApiKeyManager initialKeys={(keys ?? []) as ApiKey[]} userId={user.id} />
+  return (
+    <ApiKeyManager
+      initialKeys={(keys ?? []) as ApiKey[]}
+      userId={user.id}
+      appUrl={getAppUrl()}
+    />
+  )
 }

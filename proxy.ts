@@ -27,13 +27,17 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/'
+  // /mcp-auth handles its own auth check (OAuth consent page)
+  const isOAuthPage = pathname.startsWith('/mcp-auth')
+
   // Redirect unauthenticated users away from protected routes
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') && pathname !== '/') {
+  if (!user && !isAuthPage && !isOAuthPage) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Redirect authenticated users away from auth pages
-  if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
