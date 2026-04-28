@@ -2,12 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { MCP_TOOLS } from '@/lib/mcp/tools'
 import { handleMcpTool } from '@/lib/mcp/handlers'
 
+function getBaseUrl(request: NextRequest) {
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost:3000'
+  const proto = request.headers.get('x-forwarded-proto') ?? 'http'
+  return `${proto}://${host}`
+}
+
 // MCP over Streamable HTTP (2025-03-26 spec)
 export async function POST(request: NextRequest) {
   const apiKey = request.headers.get('x-api-key') ?? request.headers.get('authorization')?.replace('Bearer ', '')
 
   if (!apiKey) {
-    return NextResponse.json({ error: 'Missing API key. Pass via x-api-key header.' }, { status: 401 })
+    const base = getBaseUrl(request)
+    // Return 401 with OAuth discovery headers so Claude Desktop can find the auth flow
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Authentication required.' },
+      {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': `Bearer realm="${base}", error="invalid_token"`,
+          'Link': `<${base}/.well-known/oauth-authorization-server>; rel="oauth-authorization-server"`,
+        },
+      }
+    )
   }
 
   let body: Record<string, unknown>
