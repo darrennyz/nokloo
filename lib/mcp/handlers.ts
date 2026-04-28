@@ -48,7 +48,10 @@ export async function handleMcpTool(
   const { userId } = auth
 
   try {
-    switch (toolName) {
+    // Support both prefixed (nokloo_*) and legacy unprefixed names
+    const normalizedTool = toolName.startsWith('nokloo_') ? toolName.slice(7) : toolName
+
+    switch (normalizedTool) {
       case 'create_project': {
         const { name, description, raw_idea, project_type, complexity, features } = args as {
           name: string; description: string; raw_idea?: string; project_type?: string

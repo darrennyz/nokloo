@@ -112,10 +112,11 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
       body: JSON.stringify({ archived_at: archivedAt }),
     })
     if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
       // Rollback
       setProjects((prev) => [project, ...prev])
       setArchived((prev) => prev.filter((p) => p.id !== project.id))
-      toast.error('Failed to archive project')
+      toast.error(errData.error ?? `Failed to archive (${res.status})`)
       return
     }
     toast.success(`"${project.name}" archived`, {
@@ -134,10 +135,11 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
       body: JSON.stringify({ archived_at: null }),
     })
     if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
       // Rollback
       setArchived((prev) => [project, ...prev])
       setProjects((prev) => prev.filter((p) => p.id !== project.id))
-      toast.error('Failed to restore project')
+      toast.error(errData.error ?? `Failed to restore (${res.status})`)
       return
     }
     toast.success(`"${project.name}" restored`)

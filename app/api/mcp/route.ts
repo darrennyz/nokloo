@@ -16,21 +16,8 @@ export async function OPTIONS() {
 
 // MCP over Streamable HTTP (2025-03-26 spec)
 export async function POST(request: NextRequest) {
+  const base = getBaseUrl(request)
   const apiKey = request.headers.get('x-api-key') ?? request.headers.get('authorization')?.replace('Bearer ', '')
-
-  if (!apiKey) {
-    const base = getBaseUrl(request)
-    return withCors(NextResponse.json(
-      { error: 'Unauthorized', message: 'Authentication required.' },
-      {
-        status: 401,
-        headers: {
-          'WWW-Authenticate': `Bearer realm="${base}", error="invalid_token"`,
-          'Link': `<${base}/.well-known/oauth-authorization-server>; rel="oauth-authorization-server"`,
-        },
-      }
-    ))
-  }
 
   let body: Record<string, unknown>
   try {
@@ -47,6 +34,22 @@ export async function POST(request: NextRequest) {
     return corsJson({ error: 'Only JSON-RPC 2.0 supported' }, { status: 400 })
   }
 
+  // initialize and tools/list are public — Claude needs these to discover the server
+  // tools/call requires a valid Bearer token
+  const requiresAuth = method === 'tools/call'
+  if (requiresAuth && !apiKey) {
+    return withCors(NextResponse.json(
+      { jsonrpc: '2.0', id, error: { code: -32001, message: 'Authentication required.' } },
+      {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': `Bearer realm="${base}", error="invalid_token"`,
+          'Link': `<${base}/.well-known/oauth-authorization-server>; rel="oauth-authorization-server"`,
+        },
+      }
+    ))
+  }
+
   switch (method) {
     case 'initialize':
       return corsJson({
@@ -54,7 +57,11 @@ export async function POST(request: NextRequest) {
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'nokloo', version: '1.0.0' },
+          serverInfo: {
+            name: 'Nokloo',
+            version: '1.0.0',
+            description: 'Nokloo is a project tracker for indie developers. When a user describes an idea or app they want to build, use the Nokloo tools to capture it — create a project, define phases, and track tasks as the build progresses.',
+          },
         },
       })
 
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
         return corsJson({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Missing tool name' } })
       }
 
-      const result = await handleMcpTool(name, toolArgs ?? {}, apiKey)
+      const result = await handleMcpTool(name, toolArgs ?? {}, apiKey!)
       return corsJson({ jsonrpc: '2.0', id, result })
     }
 
