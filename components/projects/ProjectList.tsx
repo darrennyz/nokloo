@@ -206,38 +206,48 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
           </div>
         </Link>
 
-        {/* Actions menu */}
-        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.preventDefault()}>
+        {/* Actions menu — always slightly visible so it's discoverable */}
+        <div className="absolute top-3 right-3 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground/0 group-hover:text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-all"
-              onClick={(e) => e.stopPropagation()}
+              className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground/30 hover:text-foreground hover:bg-accent transition-all group-hover:text-muted-foreground/70 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+              aria-label="Project actions"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               {!isArchived ? (
                 <>
-                  <DropdownMenuItem className="gap-2 text-xs cursor-pointer" onSelect={() => openEdit(project)}>
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer"
+                    onSelect={(e) => { e.preventDefault(); openEdit(project) }}
+                  >
                     <Pencil className="h-3.5 w-3.5" />
                     Edit
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 text-xs cursor-pointer" onSelect={() => handleArchive(project)}>
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer"
+                    onSelect={(e) => { e.preventDefault(); handleArchive(project) }}
+                  >
                     <Archive className="h-3.5 w-3.5" />
                     Archive
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem className="gap-2 text-xs cursor-pointer" onSelect={() => handleRestore(project)}>
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer"
+                    onSelect={(e) => { e.preventDefault(); handleRestore(project) }}
+                  >
                     <ArchiveRestore className="h-3.5 w-3.5" />
                     Restore
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="gap-2 text-xs cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10"
-                    onSelect={() => { setDeleteProject(project); setDeleteOpen(true) }}
+                    onSelect={(e) => { e.preventDefault(); setDeleteProject(project); setDeleteOpen(true) }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Delete permanently
