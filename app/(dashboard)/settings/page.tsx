@@ -7,5 +7,9 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  return <AccountSettings email={user.email ?? ''} userId={user.id} />
+  return (
+    <div className="h-full overflow-y-auto">
+      <AccountSettings email={user.email ?? ''} userId={user.id} />
+    </div>
+  )
 }

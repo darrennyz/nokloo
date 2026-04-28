@@ -35,7 +35,7 @@ export function McpSetup({ initialKeys, userId, appUrl }: McpSetupProps) {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-10">
+    <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-10 pb-8">
       <div>
         <h1 className="font-display text-2xl font-700 tracking-tight">Setup</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Connect Claude to your Nokloo workspace</p>

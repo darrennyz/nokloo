@@ -64,9 +64,9 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
   }
 
   return (
-    <div className={cn('flex flex-col w-64 shrink-0', HEADER_COLORS[phase.status])}>
-      {/* Column header */}
-      <div className="flex items-center justify-between mb-3 px-0.5">
+    <div className={cn('flex flex-col w-56 md:w-64 shrink-0 h-full', HEADER_COLORS[phase.status])}>
+      {/* Column header — fixed, doesn't scroll */}
+      <div className="flex items-center justify-between mb-2.5 px-0.5 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <StatusIcon className={cn('h-3.5 w-3.5 shrink-0', PHASE_COLORS[phase.status])} />
           <span className="text-[13px] font-semibold truncate tracking-tight">{phase.name}</span>
@@ -79,9 +79,9 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — fixed */}
       {tasks.length > 0 && (
-        <div className="h-px bg-border rounded-full mb-3 overflow-hidden">
+        <div className="h-px bg-border rounded-full mb-3 overflow-hidden shrink-0">
           <div
             className={cn('h-full rounded-full transition-all duration-500', phase.status === 'completed' ? 'bg-emerald-500' : 'bg-primary')}
             style={{ width: `${progress}%` }}
@@ -89,8 +89,12 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
         </div>
       )}
 
-      {/* Cards */}
-      <div className="flex flex-col gap-2 flex-1">
+      {/* Cards — scrollable, takes remaining height */}
+      <div className="flex flex-col gap-2 flex-1 overflow-y-auto min-h-0 pr-0.5
+        [&::-webkit-scrollbar]:w-1
+        [&::-webkit-scrollbar-track]:transparent
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-border">
         {tasks.map((task) => (
           <TaskCard
             key={task.id}
@@ -102,7 +106,7 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
 
         {/* Add task */}
         {addingTask ? (
-          <form onSubmit={handleAddTask} className="space-y-2">
+          <form onSubmit={handleAddTask} className="space-y-2 shrink-0">
             <Input
               autoFocus
               value={newTaskTitle}
@@ -122,7 +126,7 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
         ) : (
           <button
             onClick={() => setAddingTask(true)}
-            className="flex items-center gap-1.5 text-[12px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1 px-0.5 w-fit"
+            className="flex items-center gap-1.5 text-[12px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1 px-0.5 w-fit shrink-0"
           >
             <Plus className="h-3 w-3" />
             Add task

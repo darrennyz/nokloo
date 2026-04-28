@@ -51,7 +51,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 py-4 border-b border-border flex items-center justify-between gap-4 shrink-0">
+      <div className="px-4 md:px-8 py-3 md:py-4 border-b border-border flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -88,8 +88,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* Kanban */}
-      <div className="flex-1 overflow-hidden">
+      {/* Kanban — min-h-0 is required so the flex child doesn't escape its allocation */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {activeVersion ? (
           <KanbanBoard initialVersion={activeVersion} />
         ) : (

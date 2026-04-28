@@ -20,5 +20,9 @@ export default async function SetupPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  return <McpSetup initialKeys={(keys ?? []) as ApiKey[]} userId={user.id} appUrl={getAppUrl()} />
+  return (
+    <div className="h-full overflow-y-auto">
+      <McpSetup initialKeys={(keys ?? []) as ApiKey[]} userId={user.id} appUrl={getAppUrl()} />
+    </div>
+  )
 }

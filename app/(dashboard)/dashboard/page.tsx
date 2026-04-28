@@ -38,7 +38,8 @@ export default async function DashboardPage() {
   const recent = projectList.slice(0, 6)
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-10">
+    <div className="h-full overflow-y-auto">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-10 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -111,6 +112,7 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

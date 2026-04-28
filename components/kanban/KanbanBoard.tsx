@@ -167,8 +167,9 @@ export function KanbanBoard({ initialVersion }: KanbanBoardProps) {
   }
 
   return (
-    <>
-      <div className="flex gap-5 overflow-x-auto pb-6 px-8 pt-4">
+    <div className="h-full overflow-x-auto overflow-y-hidden">
+      {/* inline-flex sizes to content width, enabling the outer scroll container to work */}
+      <div className="inline-flex gap-4 md:gap-5 h-full px-4 md:px-8 pt-4 pb-4 align-top">
         {phases
           .sort((a, b) => a.order_index - b.order_index)
           .map((phase) => (
@@ -189,6 +190,6 @@ export function KanbanBoard({ initialVersion }: KanbanBoardProps) {
         onClose={() => setPanelOpen(false)}
         onUpdate={handleTaskUpdate}
       />
-    </>
+    </div>
   )
 }

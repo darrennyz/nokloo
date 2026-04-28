@@ -24,10 +24,12 @@ export default async function ProjectsPage() {
   ])
 
   return (
-    <ProjectList
-      initialProjects={(active ?? []) as Project[]}
-      initialArchived={(archived ?? []) as Project[]}
-      userId={user.id}
-    />
+    <div className="h-full overflow-y-auto">
+      <ProjectList
+        initialProjects={(active ?? []) as Project[]}
+        initialArchived={(archived ?? []) as Project[]}
+        userId={user.id}
+      />
+    </div>
   )
 }
