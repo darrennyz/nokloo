@@ -4,25 +4,16 @@ import Link from 'next/link'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight, Plus, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Project, DashboardStats } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
-  idea: 'Idea',
-  planning: 'Planning',
-  building: 'Building',
-  testing: 'Testing',
-  deployed: 'Deployed',
+  idea: 'Idea', planning: 'Planning', building: 'Building', testing: 'Testing', deployed: 'Deployed',
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  idea: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20',
-  planning: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
-  building: 'bg-orange-400/10 text-orange-400 border-orange-400/20',
-  testing: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
-  deployed: 'bg-green-400/10 text-green-400 border-green-400/20',
+const STATUS_DOT: Record<string, string> = {
+  idea: 'bg-amber-400', planning: 'bg-blue-400', building: 'bg-orange-400',
+  testing: 'bg-violet-400', deployed: 'bg-emerald-400',
 }
 
 export default async function DashboardPage() {
@@ -37,27 +28,24 @@ export default async function DashboardPage() {
     .order('updated_at', { ascending: false })
 
   const projectList = (projects ?? []) as Project[]
-
   const stats: DashboardStats = {
     ideas: projectList.filter((p) => p.status === 'idea').length,
     ongoing: projectList.filter((p) => ['planning', 'building'].includes(p.status)).length,
     testing: projectList.filter((p) => p.status === 'testing').length,
     deployed: projectList.filter((p) => p.status === 'deployed').length,
   }
-
-  const recent = projectList.slice(0, 5)
+  const recent = projectList.slice(0, 6)
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-8 max-w-4xl mx-auto space-y-10">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Your project overview at a glance
-          </p>
+          <h1 className="font-display text-2xl font-700 tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Your projects at a glance</p>
         </div>
-        <Link href="/projects" className={cn(buttonVariants({ size: 'sm' }))}>
-          <Plus className="h-4 w-4 mr-1" />
+        <Link href="/projects" className={cn(buttonVariants({ size: 'sm' }), 'gap-1.5 text-xs')}>
+          <Plus className="h-3.5 w-3.5" />
           New project
         </Link>
       </div>
@@ -65,71 +53,63 @@ export default async function DashboardPage() {
       <StatsCards data={stats} />
 
       {/* Recent projects */}
-      <Card className="border-border bg-card">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-base font-semibold">Recent projects</CardTitle>
-          <Link href="/projects" className="text-xs text-muted-foreground hover:text-foreground flex items-center">
-            View all <ArrowRight className="h-3 w-3 ml-1" />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Recent projects</h2>
+          <Link href="/projects" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            View all <ArrowRight className="h-3 w-3" />
           </Link>
-        </CardHeader>
-        <CardContent>
-          {recent.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground text-sm mb-3">No projects yet.</p>
-              <p className="text-muted-foreground text-xs max-w-xs mx-auto">
-                Tell Claude about your idea and it will push the project structure here automatically. Or create one manually from Projects.
+        </div>
+
+        {recent.length === 0 ? (
+          /* Empty state — Claude connection prompt */
+          <div className="rounded-xl border border-dashed border-border bg-card/50 p-10 text-center space-y-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+              <Zap className="h-5 w-5 text-primary" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-display text-base font-600 tracking-tight">Connect Claude to get started</p>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                Go to Settings, generate an API key, add the Nokloo MCP server to Claude, then describe your idea. Your project will appear here instantly.
               </p>
             </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {recent.map((project) => (
-                <Link
-                  key={project.id}
-                  href={`/projects/${project.id}`}
-                  className="flex items-center justify-between py-3 hover:opacity-80 transition-opacity group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {project.name}
-                      </p>
-                      {project.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                          {project.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${STATUS_COLORS[project.status]}`}
-                    >
-                      {STATUS_LABELS[project.status]}
-                    </Badge>
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Claude connection hint */}
-      {projectList.length === 0 && (
-        <Card className="border-dashed border-border bg-card/50">
-          <CardContent className="py-8 text-center space-y-3">
-            <p className="text-sm font-medium">Connect Claude to Nokloo</p>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Go to <strong>Settings</strong> to generate your API key, then add the Nokloo MCP server to your Claude config. After that, just describe your idea to Claude and watch your project appear here.
-            </p>
-            <Link href="/settings" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-              Go to Settings
+            <Link href="/settings" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-xs')}>
+              Open Settings
             </Link>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            {recent.map((project, i) => (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className={cn(
+                  'flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors group',
+                  i !== recent.length - 1 && 'border-b border-border'
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[project.status]}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                      {project.name}
+                    </p>
+                    {project.description && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{project.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <span className="text-[11px] text-muted-foreground hidden sm:block">
+                    {STATUS_LABELS[project.status]}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

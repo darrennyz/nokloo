@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Plus, CheckCircle2, Circle, Clock } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TaskCard } from './TaskCard'
@@ -11,16 +10,20 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Phase, Task, TaskStatus } from '@/types'
 
-const PHASE_STATUS_ICONS = {
-  pending: Circle,
-  active: Clock,
+const PHASE_ICONS = {
+  pending:   Circle,
+  active:    Clock,
   completed: CheckCircle2,
 }
-
-const PHASE_STATUS_COLORS = {
-  pending: 'text-muted-foreground',
-  active: 'text-blue-400',
-  completed: 'text-green-400',
+const PHASE_COLORS = {
+  pending:   'text-muted-foreground/40',
+  active:    'text-primary',
+  completed: 'text-emerald-500',
+}
+const HEADER_COLORS = {
+  pending:   'opacity-50',
+  active:    '',
+  completed: '',
 }
 
 interface PhaseColumnProps {
@@ -36,27 +39,24 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const StatusIcon = PHASE_STATUS_ICONS[phase.status]
+  const StatusIcon = PHASE_ICONS[phase.status]
   const doneCount = tasks.filter((t) => t.status === 'done').length
+  const progress = tasks.length ? (doneCount / tasks.length) * 100 : 0
 
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault()
-    if (!newTaskTitle.trim()) return
+    const title = newTaskTitle.trim()
+    if (!title) return
     setSubmitting(true)
 
     const supabase = createClient()
     const { data, error } = await supabase
       .from('tasks')
-      .insert({
-        phase_id: phase.id,
-        title: newTaskTitle.trim(),
-        order_index: tasks.length,
-      })
+      .insert({ phase_id: phase.id, title, order_index: tasks.length })
       .select()
       .single()
 
     if (error) { toast.error('Failed to add task'); setSubmitting(false); return }
-
     onTaskAdded(data as Task)
     setNewTaskTitle('')
     setAddingTask(false)
@@ -64,40 +64,32 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
   }
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
-      {/* Phase header */}
-      <div className={cn(
-        'flex items-center justify-between mb-3 px-1',
-        phase.status === 'pending' && 'opacity-50'
-      )}>
+    <div className={cn('flex flex-col w-64 shrink-0', HEADER_COLORS[phase.status])}>
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-3 px-0.5">
         <div className="flex items-center gap-2 min-w-0">
-          <StatusIcon className={cn('h-4 w-4 flex-shrink-0', PHASE_STATUS_COLORS[phase.status])} />
-          <span className="text-sm font-semibold truncate">{phase.name}</span>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1 flex-shrink-0">
+          <StatusIcon className={cn('h-3.5 w-3.5 shrink-0', PHASE_COLORS[phase.status])} />
+          <span className="text-[13px] font-semibold truncate tracking-tight">{phase.name}</span>
+          <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-1.5 py-0 shrink-0">
             {tasks.length}
-          </Badge>
+          </span>
         </div>
         {tasks.length > 0 && (
-          <span className="text-[10px] text-muted-foreground flex-shrink-0">
-            {doneCount}/{tasks.length}
-          </span>
+          <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{doneCount}/{tasks.length}</span>
         )}
       </div>
 
       {/* Progress bar */}
       {tasks.length > 0 && (
-        <div className="h-0.5 bg-muted rounded-full mb-3 overflow-hidden">
+        <div className="h-px bg-border rounded-full mb-3 overflow-hidden">
           <div
-            className={cn(
-              'h-full rounded-full transition-all',
-              phase.status === 'completed' ? 'bg-green-400' : 'bg-primary'
-            )}
-            style={{ width: `${(doneCount / tasks.length) * 100}%` }}
+            className={cn('h-full rounded-full transition-all duration-500', phase.status === 'completed' ? 'bg-emerald-500' : 'bg-primary')}
+            style={{ width: `${progress}%` }}
           />
         </div>
       )}
 
-      {/* Task cards */}
+      {/* Cards */}
       <div className="flex flex-col gap-2 flex-1">
         {tasks.map((task) => (
           <TaskCard
@@ -116,20 +108,13 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               placeholder="Task title…"
-              className="text-sm h-8"
+              className="h-8 text-sm bg-card"
               onKeyDown={(e) => e.key === 'Escape' && setAddingTask(false)}
             />
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" className="h-7 text-xs" disabled={submitting}>
-                Add
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => { setAddingTask(false); setNewTaskTitle('') }}
-              >
+            <div className="flex gap-1.5">
+              <Button type="submit" size="sm" className="h-7 text-xs px-2.5" disabled={submitting}>Add</Button>
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-2.5"
+                onClick={() => { setAddingTask(false); setNewTaskTitle('') }}>
                 Cancel
               </Button>
             </div>
@@ -137,9 +122,9 @@ export function PhaseColumn({ phase, tasks, onTaskClick, onTaskAdded, onTaskStat
         ) : (
           <button
             onClick={() => setAddingTask(true)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-1"
+            className="flex items-center gap-1.5 text-[12px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1 px-0.5 w-fit"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3 w-3" />
             Add task
           </button>
         )}

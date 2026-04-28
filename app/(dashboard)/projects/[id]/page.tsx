@@ -1,23 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
-import { Badge } from '@/components/ui/badge'
+import { Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Project, VersionWithPhases } from '@/types'
 
-const STATUS_COLORS: Record<string, string> = {
-  idea: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20',
-  planning: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
-  building: 'bg-orange-400/10 text-orange-400 border-orange-400/20',
-  testing: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
-  deployed: 'bg-green-400/10 text-green-400 border-green-400/20',
+const STATUS_DOT: Record<string, string> = {
+  idea: 'bg-amber-400', planning: 'bg-blue-400', building: 'bg-orange-400',
+  testing: 'bg-violet-400', deployed: 'bg-emerald-400',
 }
-
 const STATUS_LABELS: Record<string, string> = {
-  idea: 'Idea',
-  planning: 'Planning',
-  building: 'Building',
-  testing: 'Testing',
-  deployed: 'Deployed',
+  idea: 'Idea', planning: 'Planning', building: 'Building', testing: 'Testing', deployed: 'Deployed',
 }
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,25 +28,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   if (!project) notFound()
 
-  // Fetch the first (most recent) active version with phases and tasks
   const { data: versions } = await supabase
     .from('versions')
-    .select(`
-      *,
-      phases (
-        *,
-        tasks (
-          *,
-          checklist_items (*)
-        )
-      )
-    `)
+    .select('*, phases(*, tasks(*, checklist_items(*)))')
     .eq('project_id', id)
     .order('order_index')
 
   const proj = project as Project
 
-  // Sort phases and tasks by order_index
   const processedVersions: VersionWithPhases[] = (versions ?? []).map((v) => ({
     ...v,
     phases: (v.phases ?? [])
@@ -64,38 +46,46 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       })),
   }))
 
-  // Show the first version by default (version selector is V2 scope)
   const activeVersion = processedVersions[0] ?? null
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project header */}
-      <div className="px-8 py-5 border-b border-border flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-xl font-bold tracking-tight">{proj.name}</h1>
-            <Badge variant="outline" className={`text-xs ${STATUS_COLORS[proj.status]}`}>
-              {STATUS_LABELS[proj.status]}
-            </Badge>
+      {/* Header */}
+      <div className="px-8 py-4 border-b border-border flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-lg font-700 tracking-tight truncate">{proj.name}</h1>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_DOT[proj.status])} />
+                <span className="text-xs text-muted-foreground">{STATUS_LABELS[proj.status]}</span>
+              </div>
+            </div>
+            {proj.description && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{proj.description}</p>
+            )}
           </div>
-          {proj.description && (
-            <p className="text-sm text-muted-foreground">{proj.description}</p>
-          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
           {proj.features && proj.features.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {proj.features.map((f: string) => (
-                <Badge key={f} variant="secondary" className="text-xs">
+            <div className="hidden sm:flex items-center gap-1.5">
+              {proj.features.slice(0, 3).map((f: string) => (
+                <span key={f} className="text-[11px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
                   {f}
-                </Badge>
+                </span>
               ))}
+              {proj.features.length > 3 && (
+                <span className="text-[11px] text-muted-foreground">+{proj.features.length - 3}</span>
+              )}
             </div>
           )}
+          {activeVersion && (
+            <span className="text-[11px] text-muted-foreground border border-border rounded-full px-2 py-0.5">
+              {activeVersion.name}
+            </span>
+          )}
         </div>
-        {processedVersions.length > 0 && (
-          <div className="text-xs text-muted-foreground flex-shrink-0">
-            {processedVersions[0]?.name}
-          </div>
-        )}
       </div>
 
       {/* Kanban */}
@@ -103,12 +93,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         {activeVersion ? (
           <KanbanBoard initialVersion={activeVersion} />
         ) : (
-          <div className="flex items-center justify-center h-full text-center px-8">
-            <div className="max-w-sm space-y-3">
-              <p className="text-sm font-medium">No phases generated yet</p>
-              <p className="text-xs text-muted-foreground">
-                This project is in the <strong>Idea</strong> phase. Keep chatting with Claude to refine your idea. When you&apos;re ready, tell Claude to build it and the phases will appear here automatically.
-              </p>
+          <div className="flex items-center justify-center h-full px-8">
+            <div className="text-center space-y-4 max-w-sm">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="font-display text-base font-600 tracking-tight">No phases yet</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This project is in the <strong>Idea</strong> phase. Keep refining your idea with Claude, then tell it to build — phases will appear here instantly.
+                </p>
+              </div>
             </div>
           </div>
         )}
