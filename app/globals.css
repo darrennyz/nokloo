@@ -132,3 +132,51 @@
   transition-duration: 150ms;
   transition-timing-function: ease;
 }
+
+/* ── Landing page animations ───────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-16px) rotate(1deg); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(1.05); }
+}
+@keyframes scroll-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.animate-float        { animation: float 4s ease-in-out infinite; }
+.animate-float-slow   { animation: float-slow 6s ease-in-out infinite; }
+.animate-glow-pulse   { animation: glow-pulse 3s ease-in-out infinite; }
+.animate-spin-slow    { animation: spin-slow 20s linear infinite; }
+.animate-blink        { animation: blink 1s step-end infinite; }
+.animate-shimmer-text {
+  background: linear-gradient(90deg, #a78bfa 0%, #e879f9 25%, #38bdf8 50%, #a78bfa 75%, #e879f9 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+.reveal-hidden  { opacity: 0; transform: translateY(28px); }
+.reveal-visible {
+  animation: scroll-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
