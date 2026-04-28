@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { corsJson, corsOptions } from '@/lib/mcp/cors'
 
 function getBaseUrl(request: NextRequest) {
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost:3000'
@@ -6,9 +7,13 @@ function getBaseUrl(request: NextRequest) {
   return `${proto}://${host}`
 }
 
+export async function OPTIONS() {
+  return corsOptions()
+}
+
 export async function GET(request: NextRequest) {
   const base = getBaseUrl(request)
-  return NextResponse.json({
+  return corsJson({
     issuer: base,
     authorization_endpoint: `${base}/api/mcp/oauth/authorize`,
     token_endpoint: `${base}/api/mcp/oauth/token`,
