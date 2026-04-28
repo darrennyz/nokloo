@@ -25,6 +25,7 @@ export default async function DashboardPage() {
     .from('projects')
     .select('*')
     .eq('user_id', user.id)
+    .is('archived_at', null)
     .order('updated_at', { ascending: false })
 
   const projectList = (projects ?? []) as Project[]
@@ -73,8 +74,8 @@ export default async function DashboardPage() {
                 Go to Settings, generate an API key, add the Nokloo MCP server to Claude, then describe your idea. Your project will appear here instantly.
               </p>
             </div>
-            <Link href="/settings" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-xs')}>
-              Open Settings
+            <Link href="/setup" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-xs')}>
+              Connect Claude
             </Link>
           </div>
         ) : (

@@ -13,6 +13,7 @@ export interface Project {
   complexity: string | null
   features: string[]
   status: ProjectStatus
+  archived_at: string | null
   created_at: string
   updated_at: string
 }

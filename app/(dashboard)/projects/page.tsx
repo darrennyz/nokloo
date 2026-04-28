@@ -8,11 +8,26 @@ export default async function ProjectsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
+  const [{ data: active }, { data: archived }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('archived_at', null)
+      .order('updated_at', { ascending: false }),
+    supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', user.id)
+      .not('archived_at', 'is', null)
+      .order('archived_at', { ascending: false }),
+  ])
 
-  return <ProjectList initialProjects={(projects ?? []) as Project[]} userId={user.id} />
+  return (
+    <ProjectList
+      initialProjects={(active ?? []) as Project[]}
+      initialArchived={(archived ?? []) as Project[]}
+      userId={user.id}
+    />
+  )
 }
