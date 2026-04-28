@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
+import Link from 'next/link'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
-import { Zap } from 'lucide-react'
+import { ArrowLeft, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Project, VersionWithPhases } from '@/types'
 
@@ -53,6 +54,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       {/* Header */}
       <div className="px-4 md:px-8 py-3 md:py-4 border-b border-border flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/projects"
+            className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            aria-label="Back to projects"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-display text-lg font-700 tracking-tight truncate">{proj.name}</h1>

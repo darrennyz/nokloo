@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { PhaseColumn } from './PhaseColumn'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { createClient } from '@/lib/supabase/client'
@@ -21,6 +21,81 @@ export function KanbanBoard({ initialVersion }: KanbanBoardProps) {
   })
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
+
+  // Keep a ref to current phases so the auto-activation effect always has fresh data
+  const phasesRef = useRef<Phase[]>(phases)
+  useEffect(() => { phasesRef.current = phases }, [phases])
+
+  // ── Phase auto-activation ────────────────────────────────────────────────
+  // Rules:
+  //   • any task in_progress  → phase becomes active
+  //   • all tasks done        → phase becomes completed; next pending phase activates
+  //   • otherwise             → phase becomes pending
+  //   • multiple phases can be active simultaneously
+  function computePhaseStatus(tasks: Task[]): Phase['status'] {
+    if (tasks.length === 0) return 'pending'
+    if (tasks.every((t) => t.status === 'done')) return 'completed'
+    if (tasks.some((t) => t.status === 'in_progress')) return 'active'
+    return 'pending'
+  }
+
+  useEffect(() => {
+    const currentPhases = phasesRef.current
+    if (currentPhases.length === 0) return
+
+    const supabase = createClient()
+    const updates: Array<{ id: string; newStatus: Phase['status'] }> = []
+
+    for (const phase of currentPhases) {
+      const tasks = taskMap[phase.id] ?? []
+      const computed = computePhaseStatus(tasks)
+      if (computed !== phase.status) {
+        updates.push({ id: phase.id, newStatus: computed })
+      }
+    }
+
+    if (updates.length === 0) return
+
+    // Which phases are transitioning to completed right now?
+    const newlyCompleted = new Set(
+      updates.filter((u) => u.newStatus === 'completed').map((u) => u.id)
+    )
+
+    // Apply all status changes
+    for (const { id, newStatus } of updates) {
+      supabase.from('phases').update({ status: newStatus }).eq('id', id).then(({ error }) => {
+        if (!error) {
+          setPhases((prev) => prev.map((p) => p.id === id ? { ...p, status: newStatus } : p))
+        }
+      })
+    }
+
+    // For each newly completed phase, activate its next pending successor
+    if (newlyCompleted.size > 0) {
+      const sorted = [...currentPhases].sort((a, b) => a.order_index - b.order_index)
+      for (let i = 0; i < sorted.length; i++) {
+        if (!newlyCompleted.has(sorted[i].id)) continue
+        // Walk forward to find the first phase that isn't already active/completed
+        for (let j = i + 1; j < sorted.length; j++) {
+          const next = sorted[j]
+          // Check both current DB status and any pending update we just scheduled
+          const pendingNewStatus = updates.find((u) => u.id === next.id)?.newStatus
+          const effectiveStatus = pendingNewStatus ?? next.status
+          if (effectiveStatus === 'pending') {
+            supabase.from('phases').update({ status: 'active' }).eq('id', next.id).then(({ error }) => {
+              if (!error) {
+                setPhases((prev) => prev.map((p) => p.id === next.id ? { ...p, status: 'active' } : p))
+              }
+            })
+            break
+          }
+          // Skip phases that are already active or also completing — keep looking
+          if (effectiveStatus === 'active') break
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskMap])
 
   // Real-time subscriptions
   useEffect(() => {

@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 import type { Project } from '@/types'
 
 const STATUS_META: Record<string, { label: string; icon: React.ElementType; dot: string; bg: string; text: string }> = {
@@ -64,22 +65,22 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
+  // All mutations use the browser Supabase client (same pattern as TaskCard — proven to work with RLS)
+  const supabase = createClient()
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!createName.trim()) return
     setCreating(true)
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: createName.trim(), description: createDesc.trim() || null }),
-    })
-    const data = await res.json()
-    if (!res.ok) { toast.error(data.error ?? 'Failed to create project'); setCreating(false); return }
-    setProjects((prev) => [data.project as Project, ...prev])
-    setCreateOpen(false)
-    setCreateName('')
-    setCreateDesc('')
-    setCreating(false)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { toast.error('Not authenticated'); setCreating(false); return }
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({ user_id: user.id, name: createName.trim(), description: createDesc.trim() || null, status: 'idea' })
+      .select().single()
+    if (error) { toast.error(error.message); setCreating(false); return }
+    setProjects((prev) => [data as Project, ...prev])
+    setCreateOpen(false); setCreateName(''); setCreateDesc(''); setCreating(false)
     toast.success('Project created')
   }
 
@@ -87,36 +88,29 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
     e.preventDefault()
     if (!editProject || !editName.trim()) return
     setSaving(true)
-    const res = await fetch(`/api/projects/${editProject.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null, status: editStatus }),
-    })
-    const data = await res.json()
-    if (!res.ok) { toast.error(data.error ?? 'Failed to save changes'); setSaving(false); return }
-    setProjects((prev) => prev.map((p) => p.id === editProject.id ? data.project as Project : p))
-    setEditOpen(false)
-    setSaving(false)
+    const { error } = await supabase
+      .from('projects')
+      .update({ name: editName.trim(), description: editDesc.trim() || null, status: editStatus })
+      .eq('id', editProject.id)
+    if (error) { toast.error(error.message); setSaving(false); return }
+    const updated = { ...editProject, name: editName.trim(), description: editDesc.trim() || null, status: editStatus } as Project
+    setProjects((prev) => prev.map((p) => p.id === editProject.id ? updated : p))
+    setEditOpen(false); setSaving(false)
     toast.success('Project updated')
   }
 
   async function handleArchive(project: Project) {
     const archivedAt = new Date().toISOString()
-    // Optimistic update
     setProjects((prev) => prev.filter((p) => p.id !== project.id))
     setArchived((prev) => [{ ...project, archived_at: archivedAt }, ...prev])
-
-    const res = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archived_at: archivedAt }),
-    })
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      // Rollback
+    const { error } = await supabase
+      .from('projects')
+      .update({ archived_at: archivedAt })
+      .eq('id', project.id)
+    if (error) {
       setProjects((prev) => [project, ...prev])
       setArchived((prev) => prev.filter((p) => p.id !== project.id))
-      toast.error(errData.error ?? `Failed to archive (${res.status})`)
+      toast.error(error.message)
       return
     }
     toast.success(`"${project.name}" archived`, {
@@ -125,21 +119,16 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
   }
 
   async function handleRestore(project: Project) {
-    // Optimistic update
     setArchived((prev) => prev.filter((p) => p.id !== project.id))
     setProjects((prev) => [{ ...project, archived_at: null }, ...prev])
-
-    const res = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archived_at: null }),
-    })
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      // Rollback
+    const { error } = await supabase
+      .from('projects')
+      .update({ archived_at: null })
+      .eq('id', project.id)
+    if (error) {
       setArchived((prev) => [project, ...prev])
       setProjects((prev) => prev.filter((p) => p.id !== project.id))
-      toast.error(errData.error ?? `Failed to restore (${res.status})`)
+      toast.error(error.message)
       return
     }
     toast.success(`"${project.name}" restored`)
@@ -148,16 +137,10 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
   async function handleDeletePermanently() {
     if (!deleteProject) return
     setDeleting(true)
-    const res = await fetch(`/api/projects/${deleteProject.id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const data = await res.json()
-      toast.error(data.error ?? 'Failed to delete')
-      setDeleting(false)
-      return
-    }
+    const { error } = await supabase.from('projects').delete().eq('id', deleteProject.id)
+    if (error) { toast.error(error.message); setDeleting(false); return }
     setArchived((prev) => prev.filter((p) => p.id !== deleteProject.id))
-    setDeleteOpen(false)
-    setDeleting(false)
+    setDeleteOpen(false); setDeleting(false)
     toast.success(`"${deleteProject.name}" permanently deleted`)
   }
 
@@ -211,7 +194,7 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
           <DropdownMenu>
             <DropdownMenuTrigger
               className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground/30 hover:text-foreground hover:bg-accent transition-all group-hover:text-muted-foreground/70 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onClick={(e) => e.stopPropagation()}
               aria-label="Project actions"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
@@ -221,7 +204,7 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
                 <>
                   <DropdownMenuItem
                     className="gap-2 text-xs cursor-pointer"
-                    onSelect={(e) => { e.preventDefault(); openEdit(project) }}
+                    onClick={() => openEdit(project)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     Edit
@@ -229,7 +212,7 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="gap-2 text-xs cursor-pointer"
-                    onSelect={(e) => { e.preventDefault(); handleArchive(project) }}
+                    onClick={() => handleArchive(project)}
                   >
                     <Archive className="h-3.5 w-3.5" />
                     Archive
@@ -239,7 +222,7 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
                 <>
                   <DropdownMenuItem
                     className="gap-2 text-xs cursor-pointer"
-                    onSelect={(e) => { e.preventDefault(); handleRestore(project) }}
+                    onClick={() => handleRestore(project)}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" />
                     Restore
@@ -247,7 +230,7 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="gap-2 text-xs cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10"
-                    onSelect={(e) => { e.preventDefault(); setDeleteProject(project); setDeleteOpen(true) }}
+                    onClick={() => { setDeleteProject(project); setDeleteOpen(true) }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Delete permanently
