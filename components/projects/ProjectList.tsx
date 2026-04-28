@@ -12,7 +12,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Project } from '@/types'
@@ -69,14 +68,14 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
     e.preventDefault()
     if (!createName.trim()) return
     setCreating(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({ user_id: userId, name: createName.trim(), description: createDesc.trim() || null })
-      .select()
-      .single()
-    if (error) { toast.error('Failed to create project'); setCreating(false); return }
-    setProjects((prev) => [data as Project, ...prev])
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: createName.trim(), description: createDesc.trim() || null }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Failed to create project'); setCreating(false); return }
+    setProjects((prev) => [data.project as Project, ...prev])
     setCreateOpen(false)
     setCreateName('')
     setCreateDesc('')
@@ -88,46 +87,59 @@ export function ProjectList({ initialProjects, initialArchived, userId }: Projec
     e.preventDefault()
     if (!editProject || !editName.trim()) return
     setSaving(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('projects')
-      .update({ name: editName.trim(), description: editDesc.trim() || null, status: editStatus })
-      .eq('id', editProject.id)
-      .eq('user_id', userId)
-      .select()
-      .single()
-    if (error) { toast.error('Failed to save changes'); setSaving(false); return }
-    setProjects((prev) => prev.map((p) => p.id === editProject.id ? data as Project : p))
+    const res = await fetch(`/api/projects/${editProject.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null, status: editStatus }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Failed to save changes'); setSaving(false); return }
+    setProjects((prev) => prev.map((p) => p.id === editProject.id ? data.project as Project : p))
     setEditOpen(false)
     setSaving(false)
     toast.success('Project updated')
   }
 
   async function handleArchive(project: Project) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('projects')
-      .update({ archived_at: new Date().toISOString() })
-      .eq('id', project.id)
-      .eq('user_id', userId)
-    if (error) { toast.error('Failed to archive project'); return }
+    const archivedAt = new Date().toISOString()
+    // Optimistic update
     setProjects((prev) => prev.filter((p) => p.id !== project.id))
-    setArchived((prev) => [{ ...project, archived_at: new Date().toISOString() }, ...prev])
+    setArchived((prev) => [{ ...project, archived_at: archivedAt }, ...prev])
+
+    const res = await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived_at: archivedAt }),
+    })
+    if (!res.ok) {
+      // Rollback
+      setProjects((prev) => [project, ...prev])
+      setArchived((prev) => prev.filter((p) => p.id !== project.id))
+      toast.error('Failed to archive project')
+      return
+    }
     toast.success(`"${project.name}" archived`, {
-      action: { label: 'Undo', onClick: () => handleRestore({ ...project, archived_at: new Date().toISOString() }) },
+      action: { label: 'Undo', onClick: () => handleRestore({ ...project, archived_at: archivedAt }) },
     })
   }
 
   async function handleRestore(project: Project) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('projects')
-      .update({ archived_at: null })
-      .eq('id', project.id)
-      .eq('user_id', userId)
-    if (error) { toast.error('Failed to restore project'); return }
+    // Optimistic update
     setArchived((prev) => prev.filter((p) => p.id !== project.id))
     setProjects((prev) => [{ ...project, archived_at: null }, ...prev])
+
+    const res = await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived_at: null }),
+    })
+    if (!res.ok) {
+      // Rollback
+      setArchived((prev) => [project, ...prev])
+      setProjects((prev) => prev.filter((p) => p.id !== project.id))
+      toast.error('Failed to restore project')
+      return
+    }
     toast.success(`"${project.name}" restored`)
   }
 
