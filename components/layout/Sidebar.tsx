@@ -1,31 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Settings, LogOut, Sun, Moon } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, FolderKanban, Settings, Sun, Moon, Plug } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
+  { href: '/setup', label: 'Setup', icon: Plug },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
   const { theme, setTheme } = useTheme()
-
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    toast.success('Signed out')
-    router.push('/login')
-    router.refresh()
-  }
 
   return (
     <aside className="flex h-full w-52 flex-col border-r border-border bg-sidebar shrink-0">
@@ -60,8 +50,7 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom controls */}
-      <div className="p-2 border-t border-border space-y-0.5">
-        {/* Theme toggle */}
+      <div className="p-2 border-t border-border">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-100"
@@ -72,15 +61,6 @@ export function Sidebar() {
             <Moon className="h-3.5 w-3.5 shrink-0" />
           )}
           {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        </button>
-
-        {/* Sign out */}
-        <button
-          onClick={handleSignOut}
-          className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-100"
-        >
-          <LogOut className="h-3.5 w-3.5 shrink-0" />
-          Sign out
         </button>
       </div>
     </aside>
