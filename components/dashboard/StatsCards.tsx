@@ -1,6 +1,6 @@
 'use client'
 
-import { Lightbulb, Hammer, FlaskConical, Rocket } from 'lucide-react'
+import { Lightbulb, PenLine, Hammer, FlaskConical, Rocket } from 'lucide-react'
 import type { DashboardStats } from '@/types'
 
 const stats = [
@@ -13,12 +13,20 @@ const stats = [
     border: 'border-amber-500/15',
   },
   {
-    key: 'ongoing' as const,
-    label: 'Ongoing',
-    icon: Hammer,
+    key: 'planning' as const,
+    label: 'Planning',
+    icon: PenLine,
     accent: 'text-blue-500',
     bg: 'bg-blue-500/8 dark:bg-blue-500/10',
     border: 'border-blue-500/15',
+  },
+  {
+    key: 'building' as const,
+    label: 'Building',
+    icon: Hammer,
+    accent: 'text-orange-500',
+    bg: 'bg-orange-500/8 dark:bg-orange-500/10',
+    border: 'border-orange-500/15',
   },
   {
     key: 'testing' as const,
@@ -40,7 +48,7 @@ const stats = [
 
 export function StatsCards({ data }: { data: DashboardStats }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {stats.map(({ key, label, icon: Icon, accent, bg, border }) => (
         <div
           key={key}

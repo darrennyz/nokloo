@@ -30,9 +30,10 @@ export default async function DashboardPage() {
 
   const projectList = (projects ?? []) as Project[]
   const stats: DashboardStats = {
-    ideas: projectList.filter((p) => p.status === 'idea').length,
-    ongoing: projectList.filter((p) => ['planning', 'building'].includes(p.status)).length,
-    testing: projectList.filter((p) => p.status === 'testing').length,
+    ideas:    projectList.filter((p) => p.status === 'idea').length,
+    planning: projectList.filter((p) => p.status === 'planning').length,
+    building: projectList.filter((p) => p.status === 'building').length,
+    testing:  projectList.filter((p) => p.status === 'testing').length,
     deployed: projectList.filter((p) => p.status === 'deployed').length,
   }
   const recent = projectList.slice(0, 6)

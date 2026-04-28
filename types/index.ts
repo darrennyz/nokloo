@@ -93,7 +93,8 @@ export interface PhaseWithTasks extends Phase {
 
 export interface DashboardStats {
   ideas: number
-  ongoing: number
+  planning: number
+  building: number
   testing: number
   deployed: number
 }
