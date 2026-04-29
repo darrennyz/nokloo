@@ -34,6 +34,47 @@ async function logActivity(
   await supabase.from('activity_log').insert({ user_id: userId, project_id: projectId, action, details })
 }
 
+// ── Shared helper: create phases+tasks under a version ───────────────────────
+async function createPhasesForVersion(
+  supabase: SupabaseClient,
+  versionId: string,
+  phases: Array<{ name: string; phase_type: string; tasks?: Array<{ title: string; description?: string }> }>
+) {
+  const createdPhases: Array<{ id: string; name: string; phase_type: string }> = []
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i]
+
+    const { data: phaseData, error: phaseError } = await supabase
+      .from('phases')
+      .insert({
+        version_id: versionId,
+        name: phase.name,
+        phase_type: phase.phase_type,
+        order_index: i,
+        status: i === 0 ? 'active' : 'pending',
+      })
+      .select('id, name, phase_type')
+      .single()
+
+    if (phaseError) throw phaseError
+
+    if (phase.tasks?.length) {
+      const taskInserts = phase.tasks.map((t, ti) => ({
+        phase_id: phaseData.id,
+        title: t.title,
+        description: t.description ?? null,
+        order_index: ti,
+      }))
+      await supabase.from('tasks').insert(taskInserts)
+    }
+
+    createdPhases.push({ id: phaseData.id, name: phaseData.name, phase_type: phaseData.phase_type })
+  }
+
+  return createdPhases
+}
+
 export async function handleMcpTool(
   toolName: string,
   args: Record<string, unknown>,
@@ -52,6 +93,44 @@ export async function handleMcpTool(
     const normalizedTool = toolName.startsWith('nokloo_') ? toolName.slice(7) : toolName
 
     switch (normalizedTool) {
+      // ── NEW: setup_project (create + set_phases in one call) ────────────
+      case 'setup_project': {
+        const { name, description, raw_idea, project_type, complexity, features, version_name, version_description, phases } = args as {
+          name: string; description: string; raw_idea?: string; project_type?: string
+          complexity?: string; features?: string[]; version_name?: string; version_description?: string
+          phases: Array<{ name: string; phase_type: string; tasks?: Array<{ title: string; description?: string }> }>
+        }
+
+        // Create project
+        const { data: project, error: projError } = await supabase
+          .from('projects')
+          .insert({ user_id: userId, name, description, raw_idea, project_type, complexity, features: features ?? [], status: 'planning' })
+          .select('id, name')
+          .single()
+
+        if (projError) throw projError
+
+        // Create version
+        const { data: version, error: versionError } = await supabase
+          .from('versions')
+          .insert({ project_id: project.id, name: version_name ?? 'V1', description: version_description, order_index: 0 })
+          .select('id')
+          .single()
+
+        if (versionError) throw versionError
+
+        const createdPhases = await createPhasesForVersion(supabase, version.id, phases)
+
+        await logActivity(supabase, userId, project.id, 'project_setup', { name, phase_count: phases.length })
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ project_id: project.id, version_id: version.id, phases: createdPhases }),
+          }],
+        }
+      }
+
       case 'create_project': {
         const { name, description, raw_idea, project_type, complexity, features } = args as {
           name: string; description: string; raw_idea?: string; project_type?: string
@@ -61,29 +140,27 @@ export async function handleMcpTool(
         const { data, error } = await supabase
           .from('projects')
           .insert({ user_id: userId, name, description, raw_idea, project_type, complexity, features: features ?? [], status: 'idea' })
-          .select()
+          .select('id, name')
           .single()
 
         if (error) throw error
 
         await logActivity(supabase, userId, data.id, 'project_created', { name })
-        return { content: [{ type: 'text', text: JSON.stringify({ project_id: data.id, name: data.name, status: 'created' }) }] }
+        return { content: [{ type: 'text', text: JSON.stringify({ project_id: data.id, name: data.name }) }] }
       }
 
       case 'update_project': {
         const { project_id, ...updates } = args as { project_id: string; [key: string]: unknown }
 
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('projects')
           .update(updates)
           .eq('id', project_id)
           .eq('user_id', userId)
-          .select()
-          .single()
 
         if (error) throw error
         await logActivity(supabase, userId, project_id, 'project_updated', updates)
-        return { content: [{ type: 'text', text: JSON.stringify({ status: 'updated', project: data }) }] }
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, project_id }) }] }
       }
 
       case 'set_phases': {
@@ -113,42 +190,12 @@ export async function handleMcpTool(
         const { data: version, error: versionError } = await supabase
           .from('versions')
           .insert({ project_id, name: versionName, description: version_description, order_index: count ?? 0 })
-          .select()
+          .select('id')
           .single()
 
         if (versionError) throw versionError
 
-        const createdPhases = []
-        for (let i = 0; i < phases.length; i++) {
-          const phase = phases[i]
-          const isFirst = i === 0
-
-          const { data: phaseData, error: phaseError } = await supabase
-            .from('phases')
-            .insert({
-              version_id: version.id,
-              name: phase.name,
-              phase_type: phase.phase_type,
-              order_index: i,
-              status: isFirst ? 'active' : 'pending',
-            })
-            .select()
-            .single()
-
-          if (phaseError) throw phaseError
-
-          if (phase.tasks?.length) {
-            const taskInserts = phase.tasks.map((t, ti) => ({
-              phase_id: phaseData.id,
-              title: t.title,
-              description: t.description ?? null,
-              order_index: ti,
-            }))
-            await supabase.from('tasks').insert(taskInserts)
-          }
-
-          createdPhases.push({ id: phaseData.id, name: phaseData.name, phase_type: phaseData.phase_type })
-        }
+        const createdPhases = await createPhasesForVersion(supabase, version.id, phases)
 
         // Update project status to planning
         await supabase.from('projects').update({ status: 'planning' }).eq('id', project_id)
@@ -175,7 +222,7 @@ export async function handleMcpTool(
         const { data, error } = await supabase
           .from('tasks')
           .insert({ phase_id, title, description, task_type: task_type ?? 'task', order_index: count ?? 0 })
-          .select()
+          .select('id, title')
           .single()
 
         if (error) throw error
@@ -190,15 +237,36 @@ export async function handleMcpTool(
       case 'update_task': {
         const { task_id, ...updates } = args as { task_id: string; [key: string]: unknown }
 
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('tasks')
           .update(updates)
           .eq('id', task_id)
-          .select()
-          .single()
 
         if (error) throw error
-        return { content: [{ type: 'text', text: JSON.stringify({ status: 'updated', task: data }) }] }
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] }
+      }
+
+      // ── NEW: update_tasks_bulk ───────────────────────────────────────────
+      case 'update_tasks_bulk': {
+        const { updates } = args as {
+          updates: Array<{ task_id: string; status: string; notes?: string }>
+        }
+
+        const results: Array<{ task_id: string; ok: boolean; error?: string }> = []
+
+        for (const u of updates) {
+          const { task_id, ...rest } = u
+          const { error } = await supabase.from('tasks').update(rest).eq('id', task_id)
+          results.push({ task_id, ok: !error, ...(error ? { error: error.message } : {}) })
+        }
+
+        const failed = results.filter((r) => !r.ok)
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ updated: results.length - failed.length, failed: failed.length, ...(failed.length ? { errors: failed } : {}) }),
+          }],
+        }
       }
 
       case 'generate_uat_checklist': {
@@ -220,7 +288,7 @@ export async function handleMcpTool(
             task_type: 'checklist',
             order_index: count ?? 0,
           })
-          .select()
+          .select('id')
           .single()
 
         if (taskError) throw taskError
@@ -260,7 +328,7 @@ export async function handleMcpTool(
         const { data: version } = phase ? await supabase.from('versions').select('project_id').eq('id', phase.version_id).single() : { data: null }
         if (version) await logActivity(supabase, userId, version.project_id, 'phase_transitioned', { from_phase: phase?.name })
 
-        return { content: [{ type: 'text', text: JSON.stringify({ status: 'transitioned', phase_id, next_phase_id }) }] }
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, phase_id, next_phase_id }) }] }
       }
 
       case 'add_version': {
@@ -274,7 +342,7 @@ export async function handleMcpTool(
         const { data, error } = await supabase
           .from('versions')
           .insert({ project_id, name, description, order_index: count ?? 0 })
-          .select()
+          .select('id, name')
           .single()
 
         if (error) throw error
@@ -287,7 +355,7 @@ export async function handleMcpTool(
 
         const { data: project } = await supabase
           .from('projects')
-          .select('*')
+          .select('id, name, status')
           .eq('id', project_id)
           .eq('user_id', userId)
           .single()
@@ -296,7 +364,7 @@ export async function handleMcpTool(
 
         const { data: versions } = await supabase
           .from('versions')
-          .select('*, phases(*, tasks(id, status))')
+          .select('name, phases(name, status, tasks(status))')
           .eq('project_id', project_id)
           .order('order_index')
 
@@ -305,12 +373,12 @@ export async function handleMcpTool(
           phases: v.phases?.map((p) => ({
             name: p.name,
             status: p.status,
-            tasks_total: p.tasks?.length ?? 0,
-            tasks_done: p.tasks?.filter((t) => t.status === 'done').length ?? 0,
+            done: p.tasks?.filter((t) => t.status === 'done').length ?? 0,
+            total: p.tasks?.length ?? 0,
           })),
         }))
 
-        return { content: [{ type: 'text', text: JSON.stringify({ project: { id: project.id, name: project.name, status: project.status }, versions: summary }) }] }
+        return { content: [{ type: 'text', text: JSON.stringify({ project, versions: summary }) }] }
       }
 
       case 'get_phase_tasks': {
@@ -318,17 +386,25 @@ export async function handleMcpTool(
 
         const { data: tasks } = await supabase
           .from('tasks')
-          .select('*, checklist_items(*)')
+          .select('id, title, status, task_type, checklist_items(id, item, checked)')
           .eq('phase_id', phase_id)
           .order('order_index')
 
-        return { content: [{ type: 'text', text: JSON.stringify({ tasks }) }] }
+        // Strip checklist_items from non-checklist tasks to keep payload small
+        const slim = tasks?.map((t: { id: string; title: string; status: string; task_type: string; checklist_items?: unknown[] }) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          ...(t.task_type === 'checklist' ? { checklist_items: t.checklist_items } : {}),
+        }))
+
+        return { content: [{ type: 'text', text: JSON.stringify({ tasks: slim }) }] }
       }
 
       case 'list_projects': {
         const { data: projects } = await supabase
           .from('projects')
-          .select('id, name, status, created_at, updated_at')
+          .select('id, name, status')
           .eq('user_id', userId)
           .order('updated_at', { ascending: false })
 

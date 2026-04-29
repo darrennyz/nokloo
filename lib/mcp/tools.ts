@@ -2,85 +2,30 @@ export const MCP_TOOLS = [
   // ── Write tools ──────────────────────────────────────────────────────────
 
   {
-    name: 'nokloo_create_project',
+    name: 'nokloo_setup_project',
     description:
-      'Create a new project in Nokloo. Call this immediately when the user describes any app, tool, or idea they want to build — even casually e.g. "I want to build a booking app." Returns a project_id to use in all subsequent Nokloo calls.',
+      'Create a project AND set its phases+tasks in one call. Use this instead of calling nokloo_create_project then nokloo_set_phases separately. Call immediately when a user describes any app or idea they want to build.',
     inputSchema: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Short project name' },
-        description: { type: 'string', description: 'One-paragraph summary of the project' },
-        raw_idea: { type: 'string', description: "The user's original idea text verbatim" },
-        project_type: {
-          type: 'string',
-          description: 'Project category e.g. saas, ecommerce, bot, internal_tool, mobile_app',
-        },
-        complexity: {
-          type: 'string',
-          enum: ['simple', 'medium', 'complex'],
-          description: 'Estimated complexity based on feature count and integrations',
-        },
-        features: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Key features detected from the idea',
-        },
-      },
-      required: ['name', 'description'],
-    },
-  },
-
-  {
-    name: 'nokloo_update_project',
-    description:
-      'Update metadata on an existing Nokloo project (name, description, status, complexity, features). Call this as more context is gathered or when the project status changes.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project_id: { type: 'string' },
-        name: { type: 'string' },
-        description: { type: 'string' },
-        project_type: { type: 'string' },
+        description: { type: 'string', description: 'One-paragraph summary' },
+        raw_idea: { type: 'string', description: "User's original idea verbatim" },
+        project_type: { type: 'string', description: 'e.g. saas, ecommerce, bot, internal_tool, mobile_app' },
         complexity: { type: 'string', enum: ['simple', 'medium', 'complex'] },
         features: { type: 'array', items: { type: 'string' } },
-        status: {
-          type: 'string',
-          enum: ['idea', 'planning', 'building', 'testing', 'deployed'],
-        },
-      },
-      required: ['project_id'],
-    },
-  },
-
-  {
-    name: 'nokloo_set_phases',
-    description:
-      'Define the build phases (Kanban columns) for a Nokloo project. Call once the user is ready to start building. Choose phases based on project type — a simple bot: Build > Test > Deploy; a SaaS: Planning > Design > Build > Security Review > Testing > UAT > Deploy. Always include UAT for user-facing products.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project_id: { type: 'string' },
-        version_name: {
-          type: 'string',
-          description: 'Version label e.g. "V1 - MVP"',
-          default: 'V1',
-        },
+        version_name: { type: 'string', description: 'Version label e.g. "V1 - MVP"', default: 'V1' },
         version_description: { type: 'string' },
         phases: {
           type: 'array',
-          description: 'Ordered list of phases. Order determines Kanban column sequence.',
+          description: 'Ordered phases. Simple bot: Build>Test>Deploy. SaaS: Planning>Design>Build>Security>Testing>UAT>Deploy. Include UAT for user-facing products.',
           items: {
             type: 'object',
             properties: {
-              name: { type: 'string', description: 'Phase display name e.g. "Security Review"' },
-              phase_type: {
-                type: 'string',
-                description:
-                  'Machine-readable type: idea | planning | design | build | security | testing | uat | deploy | review',
-              },
+              name: { type: 'string' },
+              phase_type: { type: 'string', description: 'idea|planning|design|build|security|testing|uat|deploy|review' },
               tasks: {
                 type: 'array',
-                description: 'Initial tasks to create inside this phase',
                 items: {
                   type: 'object',
                   properties: {
@@ -95,13 +40,83 @@ export const MCP_TOOLS = [
           },
         },
       },
+      required: ['name', 'description', 'phases'],
+    },
+  },
+
+  {
+    name: 'nokloo_create_project',
+    description:
+      'Create a project without phases. Prefer nokloo_setup_project unless you need to create the project first and plan phases later.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        description: { type: 'string' },
+        raw_idea: { type: 'string' },
+        project_type: { type: 'string' },
+        complexity: { type: 'string', enum: ['simple', 'medium', 'complex'] },
+        features: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['name', 'description'],
+    },
+  },
+
+  {
+    name: 'nokloo_update_project',
+    description: 'Update project metadata (name, description, status, complexity, features).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        project_type: { type: 'string' },
+        complexity: { type: 'string', enum: ['simple', 'medium', 'complex'] },
+        features: { type: 'array', items: { type: 'string' } },
+        status: { type: 'string', enum: ['idea', 'planning', 'building', 'testing', 'deployed'] },
+      },
+      required: ['project_id'],
+    },
+  },
+
+  {
+    name: 'nokloo_set_phases',
+    description:
+      'Define phases (Kanban columns) for an existing project. Use nokloo_setup_project instead if creating a new project.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string' },
+        version_name: { type: 'string', default: 'V1' },
+        version_description: { type: 'string' },
+        phases: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              phase_type: { type: 'string' },
+              tasks: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { title: { type: 'string' }, description: { type: 'string' } },
+                  required: ['title'],
+                },
+              },
+            },
+            required: ['name', 'phase_type'],
+          },
+        },
+      },
       required: ['project_id', 'phases'],
     },
   },
 
   {
     name: 'nokloo_add_task',
-    description: 'Add a single task to an existing phase in a Nokloo project.',
+    description: 'Add a single task to a phase.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -116,7 +131,7 @@ export const MCP_TOOLS = [
 
   {
     name: 'nokloo_update_task',
-    description: "Update a Nokloo task's status or notes as work progresses.",
+    description: 'Update a single task status or notes.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -130,22 +145,39 @@ export const MCP_TOOLS = [
   },
 
   {
-    name: 'nokloo_generate_uat_checklist',
+    name: 'nokloo_update_tasks_bulk',
     description:
-      'Generate a UAT checklist for a feature in Nokloo. Call when the project reaches the UAT phase to create tickable acceptance criteria.',
+      'Update status on multiple tasks in one call. Use instead of calling nokloo_update_task repeatedly when marking several tasks done/in_progress.',
     inputSchema: {
       type: 'object',
       properties: {
-        phase_id: {
-          type: 'string',
-          description: 'The UAT phase ID to add the checklist task to',
-        },
-        feature_name: { type: 'string', description: 'The feature being tested e.g. "Payments"' },
-        checklist_items: {
+        updates: {
           type: 'array',
-          items: { type: 'string' },
-          description: 'List of UAT scenarios e.g. "Successful checkout flow", "Failed card handling"',
+          description: 'List of task updates',
+          items: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string' },
+              status: { type: 'string', enum: ['todo', 'in_progress', 'done', 'blocked'] },
+              notes: { type: 'string' },
+            },
+            required: ['task_id', 'status'],
+          },
         },
+      },
+      required: ['updates'],
+    },
+  },
+
+  {
+    name: 'nokloo_generate_uat_checklist',
+    description: 'Generate a UAT checklist task in a phase with tickable acceptance criteria.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        phase_id: { type: 'string' },
+        feature_name: { type: 'string' },
+        checklist_items: { type: 'array', items: { type: 'string' } },
       },
       required: ['phase_id', 'feature_name', 'checklist_items'],
     },
@@ -153,16 +185,12 @@ export const MCP_TOOLS = [
 
   {
     name: 'nokloo_transition_phase',
-    description:
-      "Mark a Nokloo phase as completed and activate the next phase. Call when the user confirms they're ready to move forward.",
+    description: "Mark a phase completed and optionally activate the next phase.",
     inputSchema: {
       type: 'object',
       properties: {
-        phase_id: { type: 'string', description: 'The phase to mark as completed' },
-        next_phase_id: {
-          type: 'string',
-          description: 'The phase to activate next (optional — if omitted, just completes current)',
-        },
+        phase_id: { type: 'string' },
+        next_phase_id: { type: 'string', description: 'Phase to activate next (optional)' },
       },
       required: ['phase_id'],
     },
@@ -170,8 +198,7 @@ export const MCP_TOOLS = [
 
   {
     name: 'nokloo_add_version',
-    description:
-      'Add a new version (e.g. V2) to an existing Nokloo project for post-MVP features.',
+    description: 'Add a new version (e.g. V2) to an existing project.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -187,32 +214,27 @@ export const MCP_TOOLS = [
 
   {
     name: 'nokloo_get_project_status',
-    description:
-      'Get a full overview of a Nokloo project: all versions, phases, and task completion counts. Use this to check progress and decide on next steps.',
+    description: 'Get project overview: versions, phases, and task completion counts.',
     inputSchema: {
       type: 'object',
-      properties: {
-        project_id: { type: 'string' },
-      },
+      properties: { project_id: { type: 'string' } },
       required: ['project_id'],
     },
   },
 
   {
     name: 'nokloo_get_phase_tasks',
-    description: 'Get all tasks for a specific Nokloo phase including their statuses and checklist items.',
+    description: 'Get tasks for a phase (id, title, status). Use to check what needs doing before updating.',
     inputSchema: {
       type: 'object',
-      properties: {
-        phase_id: { type: 'string' },
-      },
+      properties: { phase_id: { type: 'string' } },
       required: ['phase_id'],
     },
   },
 
   {
     name: 'nokloo_list_projects',
-    description: "List all of the user's Nokloo projects. Use this when the user asks what projects they have, or to find a project_id before updating it.",
+    description: "List all user projects (id, name, status). Use to find a project_id.",
     inputSchema: {
       type: 'object',
       properties: {},
