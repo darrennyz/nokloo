@@ -4,7 +4,7 @@ export const MCP_TOOLS = [
   {
     name: 'nokloo_setup_project',
     description:
-      'Create a project AND set its phases+tasks in one call. Use this instead of calling nokloo_create_project then nokloo_set_phases separately. Call immediately when a user describes any app or idea they want to build.',
+      'Create a project AND set its phases+tasks in one call. Call immediately when a user describes any app or idea they want to build.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -41,24 +41,6 @@ export const MCP_TOOLS = [
         },
       },
       required: ['name', 'description', 'phases'],
-    },
-  },
-
-  {
-    name: 'nokloo_create_project',
-    description:
-      'Create a project without phases. Prefer nokloo_setup_project unless you need to create the project first and plan phases later.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        description: { type: 'string' },
-        raw_idea: { type: 'string' },
-        project_type: { type: 'string' },
-        complexity: { type: 'string', enum: ['simple', 'medium', 'complex'] },
-        features: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['name', 'description'],
     },
   },
 
