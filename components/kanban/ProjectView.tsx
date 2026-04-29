@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Zap, GitBranch } from 'lucide-react'
+import { ArrowLeft, Plus, Zap, GitBranch, X } from 'lucide-react'
 import { KanbanBoard } from './KanbanBoard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +34,8 @@ export function ProjectView({ project, initialVersions }: ProjectViewProps) {
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<VersionWithPhases | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const selectedVersion = versions.find((v) => v.id === selectedId) ?? versions[0] ?? null
 
@@ -62,6 +64,24 @@ export function ProjectView({ project, initialVersions }: ProjectViewProps) {
     setNewDesc('')
     setCreating(false)
     toast.success(`"${newVersion.name}" created — ask Claude to set up phases`)
+  }
+
+  async function handleDeleteVersion() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('versions').delete().eq('id', deleteTarget.id)
+    if (error) { toast.error(error.message); setDeleting(false); return }
+
+    const remaining = versions.filter((v) => v.id !== deleteTarget.id)
+    setVersions(remaining)
+    // If we just deleted the selected tab, pick the nearest one
+    if (selectedId === deleteTarget.id) {
+      setSelectedId(remaining[0]?.id ?? null)
+    }
+    toast.success(`"${deleteTarget.name}" deleted`)
+    setDeleteTarget(null)
+    setDeleting(false)
   }
 
   return (
@@ -113,22 +133,37 @@ export function ProjectView({ project, initialVersions }: ProjectViewProps) {
           {versions.map((v) => {
             const isSelected = v.id === selectedId
             return (
-              <button
+              <div
                 key={v.id}
-                onClick={() => setSelectedId(v.id)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg border-b-2 transition-all whitespace-nowrap',
+                  'group/tab flex items-center gap-1 pl-3 pr-1.5 py-2 text-xs font-medium rounded-t-lg border-b-2 transition-all whitespace-nowrap',
                   isSelected
                     ? 'border-primary text-foreground bg-primary/5'
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 )}
               >
-                <GitBranch className="h-3 w-3 shrink-0" />
-                {v.name}
-                {v.status === 'completed' && (
-                  <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                )}
-              </button>
+                <button
+                  onClick={() => setSelectedId(v.id)}
+                  className="flex items-center gap-1.5 min-w-0"
+                >
+                  <GitBranch className="h-3 w-3 shrink-0" />
+                  {v.name}
+                  {v.status === 'completed' && (
+                    <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  )}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(v) }}
+                  className={cn(
+                    'ml-0.5 w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
+                    'opacity-0 group-hover/tab:opacity-100',
+                    'hover:bg-destructive/15 hover:text-destructive text-muted-foreground/60'
+                  )}
+                  aria-label={`Delete ${v.name}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
             )
           })}
 
@@ -167,6 +202,35 @@ export function ProjectView({ project, initialVersions }: ProjectViewProps) {
           <KanbanBoard key={selectedVersion.id} initialVersion={selectedVersion} />
         ) : null}
       </div>
+
+      {/* ── Delete version dialog ── */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="bg-card border-border sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display tracking-tight">Delete version?</DialogTitle>
+          </DialogHeader>
+          <div className="pt-1 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              <span className="font-medium text-foreground">"{deleteTarget?.name}"</span> and all
+              its phases and tasks will be permanently deleted. This cannot be undone.
+            </p>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={deleting}
+                onClick={handleDeleteVersion}
+              >
+                {deleting ? 'Deleting…' : 'Delete version'}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── New version dialog ── */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
